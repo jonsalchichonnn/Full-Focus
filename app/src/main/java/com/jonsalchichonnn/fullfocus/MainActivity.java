@@ -1,5 +1,6 @@
 package com.jonsalchichonnn.fullfocus;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.icu.util.Calendar;
 import android.os.Build;
@@ -33,8 +34,9 @@ public class MainActivity extends AppCompatActivity {
     // show attribution with a link back to https://zenquotes.io/ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     private static final String DAILY_URL = "https://zenquotes.io/api/today";
     private static final int N_FRASES = 50;
+    public static final String SHARED_PREFS = "com.jonsalchichonnn.fullfocus";
+    public static final String DAILY_QUOTE = "dailyQuote";
     //we set a tag to be able to cancel all work of this type if needed
-
 
 
     private SharedPreferences sharedPreferences;
@@ -65,14 +67,18 @@ public class MainActivity extends AppCompatActivity {
         tv_quotes = findViewById(R.id.tv_quotes);
         btn_newQuote = findViewById(R.id.btn_newQuote);
         rnd = new Random();
+        sharedPreferences = getSharedPreferences(SHARED_PREFS, Context.MODE_PRIVATE);
 
-        loadData();
-        actualizarDaily();
+        firstNotifyWork();
+        String content = sharedPreferences.getString(DAILY_QUOTE, null);
+        dailyQuote = content != null ? content : pickDefaultQuote();
+        updateView();
+
 
         btn_newQuote.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                pickDefaultQuote();
+                dailyQuote = pickDefaultQuote();
                 updateView();
             }
         });
@@ -112,13 +118,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // set the daily quote task for the very 1st time
+    // doesn't show the notification if the day u downloaded is 5AM past
     @RequiresApi(api = Build.VERSION_CODES.N)
-    private void actualizarDaily(){
+    private void firstNotifyWork() {
         Calendar currentDate = Calendar.getInstance();
         Calendar dueDate = Calendar.getInstance();
         // Set Execution around 05:00:00 AM
-        dueDate.set(Calendar.HOUR_OF_DAY, 12);
-        dueDate.set(Calendar.MINUTE, 22);
+        dueDate.set(Calendar.HOUR_OF_DAY, 5);
+        dueDate.set(Calendar.MINUTE, 0);
         dueDate.set(Calendar.SECOND, 0);
 
         // Re-scheduling the task for next day
@@ -145,14 +152,17 @@ public class MainActivity extends AppCompatActivity {
         tv_quotes.setText(dailyQuote);
     }
 
-    private void pickDefaultQuote() {
+    private String pickDefaultQuote() {
+        String rndQuote;
         try {
             JSONArray frases = new JSONArray(loadJSONFromAsset());
             int indice = rnd.nextInt(N_FRASES);
             JSONObject daily = frases.getJSONObject(indice);
-            dailyQuote = daily.getString("q") + "\n-" + daily.getString("a");
+            rndQuote = daily.getString("q") + "\n-" + daily.getString("a");
+            return rndQuote;
         } catch (JSONException e) {
             e.printStackTrace();
+            return "ERROR en pickDefaultQuote";
         }
     }
 
@@ -167,7 +177,6 @@ public class MainActivity extends AppCompatActivity {
             json = new String(buffer, "UTF-8");
         } catch (IOException ex) {
             ex.printStackTrace();
-            return null;
         }
         return json;
     }
