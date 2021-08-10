@@ -1,32 +1,24 @@
 package com.jonsalchichonnn.fullfocus;
 
-import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
-
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
-
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
+import android.icu.util.Calendar;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.work.Constraints;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkManager;
+
 import com.android.volley.Request;
-import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
-import com.android.volley.toolbox.StringRequest;
-import com.android.volley.toolbox.Volley;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -35,13 +27,14 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
     // show attribution with a link back to https://zenquotes.io/ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     private static final String DAILY_URL = "https://zenquotes.io/api/today";
     private static final int N_FRASES = 50;
-    private final static String DAILY_NOTIFICATION_CHANNEL = "Daily Quote Reminder";
-    private final static String NOTIFICATION_TITLE = "Daily Quote!!!";
+    //we set a tag to be able to cancel all work of this type if needed
+
 
 
     private SharedPreferences sharedPreferences;
@@ -50,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String dailyQuote;
     private Random rnd;
+
 
 
     /*
@@ -62,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
      *
      * */
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -72,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
         rnd = new Random();
 
         loadData();
+        actualizarDaily();
 
         btn_newQuote.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -81,38 +77,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-
-        //safe to call this repeatedly because creating an existing notification channel performs no operation.
-        createNotificationChannel();
-
-        //Set the notification's tap action
-        //create an intent to open the event details activity
-        Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-        //put together the PendingIntent:will start a new activity
-        PendingIntent pendingIntent =
-                PendingIntent.getActivity(getApplicationContext(), 1, intent, FLAG_UPDATE_CURRENT);
-
-        //get latest daily quote
-        String notificationText = "Ola k ase";
-
-        //build the notification
-        NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(getApplicationContext(), DAILY_NOTIFICATION_CHANNEL)
-                        .setSmallIcon(R.drawable.ic_launcher_foreground)
-                        .setContentTitle(NOTIFICATION_TITLE)
-                        .setContentText(notificationText)
-                        .setContentIntent(pendingIntent)
-                        .setAutoCancel(true)
-                        .setPriority(NotificationCompat.PRIORITY_DEFAULT);
-
-        //Triggering the notification
-
-        NotificationManagerCompat notificationManager =
-                NotificationManagerCompat.from(getApplicationContext());
-
-        //we hardcode the id so there will be just 1 notification w/ different content
-        notificationManager.notify(1, notificationBuilder.build());
-
     }
 
 
@@ -121,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
         JsonArrayRequest dailyRequest = new JsonArrayRequest(Request.Method.GET, DAILY_URL, null, new Response.Listener<JSONArray>() {
             @Override
             public void onResponse(JSONArray response) {
-                JSONObject JSONQuote = null;
+                JSONObject JSONQuote;
                 String quote = "";
                 String author = "";
                 try {
@@ -145,39 +109,34 @@ public class MainActivity extends AppCompatActivity {
 
         // Add the request to the RequestQueue(singleton bc we want only one queue for the whole app).
         RequestSingleton.getInstance(this).addToRequestQueue(dailyRequest);
-
     }
 
-    // Create the NotificationChannel, but only on API 26+(>=8.0) because
-    // the NotificationChannel class is new and not in the support library
-    private void createNotificationChannel(){
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            //define the importance level of the notification
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+    // set the daily quote task for the very 1st time
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    private void actualizarDaily(){
+        Calendar currentDate = Calendar.getInstance();
+        Calendar dueDate = Calendar.getInstance();
+        // Set Execution around 05:00:00 AM
+        dueDate.set(Calendar.HOUR_OF_DAY, 12);
+        dueDate.set(Calendar.MINUTE, 22);
+        dueDate.set(Calendar.SECOND, 0);
 
-            //build the actual notification channel, giving it a unique ID and name
-            NotificationChannel channel =
-                    new NotificationChannel(DAILY_NOTIFICATION_CHANNEL, DAILY_NOTIFICATION_CHANNEL, importance);
-
-            //we can optionally add a description for the channel
-            String description = "A channel which shows notifications about daily Quotes";
-            channel.setDescription(description);
-
-            //we can optionally set notification LED colour
-            channel.setLightColor(Color.MAGENTA);
-
-            // Register the channel with the system
-            //If we submit a new channel with the same name and description, the system will just ignore it as duplicate.
-            NotificationManager notificationManager = (NotificationManager) getApplicationContext().
-                    getSystemService(Context.NOTIFICATION_SERVICE);
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
-            }
+        // Re-scheduling the task for next day
+        if (dueDate.before(currentDate)) {
+            dueDate.add(Calendar.HOUR_OF_DAY, 24);
         }
-    }
-    private void actualizarDaily() {
 
+        long timeDiff = dueDate.getTimeInMillis() - currentDate.getTimeInMillis();
+        Constraints constraints =
+                new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+        OneTimeWorkRequest notificationWork = new OneTimeWorkRequest.Builder(NotifyWorker.class)
+                .setInitialDelay(timeDiff, TimeUnit.MILLISECONDS)
+                .setConstraints(constraints)
+                .build();
+
+        WorkManager.getInstance(getApplicationContext()).enqueue(notificationWork);
     }
+
 
     private void saveData() {
     }
