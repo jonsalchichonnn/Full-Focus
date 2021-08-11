@@ -34,10 +34,10 @@ public class MainActivity extends AppCompatActivity {
     // show attribution with a link back to https://zenquotes.io/ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     private static final String DAILY_URL = "https://zenquotes.io/api/today";
     private static final int N_FRASES = 50;
-    public static final String SHARED_PREFS = "com.jonsalchichonnn.fullfocus";
-    public static final String DAILY_QUOTE = "dailyQuote";
-    //we set a tag to be able to cancel all work of this type if needed
-
+    private static final String SHARED_PREFS = "com.jonsalchichonnn.fullfocus";
+    private static final String DAILY_QUOTE = "dailyQuote";
+    private static final String RND_QUOTES = "rndQuotes";
+    private static final String FIRST_TIME = "firstTime";
 
     private SharedPreferences sharedPreferences;
     private TextView tv_quotes;
@@ -45,18 +45,8 @@ public class MainActivity extends AppCompatActivity {
 
     private String dailyQuote;
     private Random rnd;
+    private boolean firstTime;
 
-
-
-    /*
-     * una vez al dia (a las 7:00?) notificacion con frase del dia y guardarla en sharedPreferences
-     * además de conseguir 50 frases nuevas y actualizarlas en el json.
-     *
-     * cada vez q entro al app:
-     * 1º intentar setear frase del dia GUARDADA
-     * 2º si no hay => poner uno de los 50 offline
-     *
-     * */
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
@@ -69,52 +59,24 @@ public class MainActivity extends AppCompatActivity {
         rnd = new Random();
         sharedPreferences = getSharedPreferences(SHARED_PREFS, Context.MODE_PRIVATE);
 
-        firstNotifyWork();
+        firstTime = sharedPreferences.getBoolean(FIRST_TIME,true);
+
+        // si lo he entendido bien, con esto evitamos q cada vez q abramos la app se programe otro Work
+        if(firstTime)
+            firstNotifyWork();
         String content = sharedPreferences.getString(DAILY_QUOTE, null);
-        dailyQuote = content != null ? content : pickDefaultQuote();
+        dailyQuote = content != null ? content : getRndQuote();
         updateView();
 
 
         btn_newQuote.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dailyQuote = pickDefaultQuote();
+                dailyQuote = getRndQuote();
                 updateView();
             }
         });
 
-    }
-
-
-    private void loadData() {
-        // Request a JSON response from the provided URL.
-        JsonArrayRequest dailyRequest = new JsonArrayRequest(Request.Method.GET, DAILY_URL, null, new Response.Listener<JSONArray>() {
-            @Override
-            public void onResponse(JSONArray response) {
-                JSONObject JSONQuote;
-                String quote = "";
-                String author = "";
-                try {
-                    JSONQuote = response.getJSONObject(0);
-                    quote = JSONQuote.getString("q");
-                    author = JSONQuote.getString("a");
-                } catch (JSONException e) {
-                    // mejorar el mensaje de error
-                    e.printStackTrace();
-                }
-                dailyQuote = quote + "\n-" + author;
-                updateView();
-            }
-        }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                pickDefaultQuote();
-                updateView();
-            }
-        });
-
-        // Add the request to the RequestQueue(singleton bc we want only one queue for the whole app).
-        RequestSingleton.getInstance(this).addToRequestQueue(dailyRequest);
     }
 
     // set the daily quote task for the very 1st time
@@ -152,10 +114,17 @@ public class MainActivity extends AppCompatActivity {
         tv_quotes.setText(dailyQuote);
     }
 
-    private String pickDefaultQuote() {
+
+    private String getRndQuote() {
         String rndQuote;
         try {
-            JSONArray frases = new JSONArray(loadJSONFromAsset());
+            JSONArray frases;
+            if(firstTime) {
+                frases = new JSONArray(loadJSONFromAsset());
+            }
+            else {
+                frases = new JSONArray(sharedPreferences.getString(RND_QUOTES, null));
+            }
             int indice = rnd.nextInt(N_FRASES);
             JSONObject daily = frases.getJSONObject(indice);
             rndQuote = daily.getString("q") + "\n-" + daily.getString("a");

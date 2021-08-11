@@ -10,9 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.icu.util.Calendar;
-import android.net.Network;
 import android.os.Build;
-import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -39,12 +37,16 @@ import java.util.concurrent.TimeUnit;
 
 public class NotifyWorker extends Worker {
     private static final String DAILY_URL = "https://zenquotes.io/api/today";
+    private static final String RND_QUOTES_URL = "https://zenquotes.io/api/quotes";
     private final static String DAILY_NOTIFICATION_CHANNEL = "Daily Quote Reminder";
     private final static String NOTIFICATION_TITLE = "Daily Quote!!!";
-    public static final String workTag = "notificationWork";
-    public static final String SHARED_PREFS = "com.jonsalchichonnn.fullfocus";
-    public static final String DAILY_QUOTE = "dailyQuote";
+    private static final String workTag = "notificationWork";
+    private static final String SHARED_PREFS = "com.jonsalchichonnn.fullfocus";
+    private static final String DAILY_QUOTE = "dailyQuote";
+    private static final String RND_QUOTES = "rndQuotes";
+    private static final String FIRST_TIME = "firstTime";
 
+    // mirar si sustituir todos los getAppContext por esta var
     Context applicationContext = getApplicationContext();
 
     private SharedPreferences sharedPreferences;
@@ -61,22 +63,24 @@ public class NotifyWorker extends Worker {
     @Override
     public Result doWork() {
         sharedPreferences = applicationContext.getSharedPreferences(SHARED_PREFS, Context.MODE_PRIVATE);
+        getNewRndQuotes();
         getNewDailyQuote(new VolleyResponseListener() {
             @Override
             public void onError(String msj) {
-                Toast.makeText(getApplicationContext(), "Something Wrong",Toast.LENGTH_LONG).show();
+                Toast.makeText(applicationContext, "Something Wrong",Toast.LENGTH_LONG).show();
             }
 
             @Override
             public void onResponse(String dailyQuote) {
-                actualizarDaily(dailyQuote);
+                updateDaily(dailyQuote);
             }
         });
         return Result.success();
     }
 
+    // Re-schedules quotes update task for next day and fires a notification with daily quote
     @RequiresApi(api = Build.VERSION_CODES.N)
-    private void actualizarDaily(String dailyQuote) {
+    private void updateDaily(String dailyQuote) {
         Calendar currentDate = Calendar.getInstance();
         Calendar dueDate = Calendar.getInstance();
         // Set Execution around 05:00:00 AM
@@ -103,7 +107,7 @@ public class NotifyWorker extends Worker {
                 .build();
 
 
-        WorkManager.getInstance(getApplicationContext()).enqueue(notificationWork);
+        WorkManager.getInstance(applicationContext).enqueue(notificationWork);
     }
 
     private void triggerNotification(String notificationText) {
@@ -112,16 +116,16 @@ public class NotifyWorker extends Worker {
 
         //Set the notification's tap action
         //create an intent to open the event details activity
-        Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+        Intent intent = new Intent(applicationContext, MainActivity.class);
         //put together the PendingIntent:will start a new activity
         PendingIntent pendingIntent =
-                PendingIntent.getActivity(getApplicationContext(), 1, intent, FLAG_UPDATE_CURRENT);
+                PendingIntent.getActivity(applicationContext, 1, intent, FLAG_UPDATE_CURRENT);
 
         sharedPreferences.edit().putString(DAILY_QUOTE, notificationText).apply();
 
         //build the notification
         NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(getApplicationContext(), DAILY_NOTIFICATION_CHANNEL)
+                new NotificationCompat.Builder(applicationContext, DAILY_NOTIFICATION_CHANNEL)
                         .setSmallIcon(R.drawable.ic_launcher_foreground)
                         .setContentTitle(NOTIFICATION_TITLE)
                         .setContentText(notificationText)
@@ -132,7 +136,7 @@ public class NotifyWorker extends Worker {
         //Triggering the notification
         //we hardcode the id so there will be just 1 notification w/ different content
         NotificationManagerCompat notificationManager =
-                NotificationManagerCompat.from(getApplicationContext());
+                NotificationManagerCompat.from(applicationContext);
 
         notificationManager.notify(1, notificationBuilder.build());
     }
@@ -153,7 +157,7 @@ public class NotifyWorker extends Worker {
 
             // Register the channel with the system
             //If we submit a new channel with the same name and description, the system will just ignore it as duplicate.
-            NotificationManager notificationManager = (NotificationManager) getApplicationContext().
+            NotificationManager notificationManager = (NotificationManager) applicationContext.
                     getSystemService(Context.NOTIFICATION_SERVICE);
             if (notificationManager != null) {
                 notificationManager.createNotificationChannel(channel);
@@ -196,6 +200,23 @@ public class NotifyWorker extends Worker {
         });
 
         // Add the request to the RequestQueue(singleton bc we want only one queue for the whole app).
-        RequestSingleton.getInstance(getApplicationContext()).addToRequestQueue(dailyRequest);
+        RequestSingleton.getInstance(applicationContext).addToRequestQueue(dailyRequest);
+    }
+    private void getNewRndQuotes() {
+        JsonArrayRequest dailyRequest = new JsonArrayRequest(Request.Method.GET, RND_QUOTES_URL, null, new Response.Listener<JSONArray>() {
+            @Override
+            public void onResponse(JSONArray response) {
+                sharedPreferences.edit().putString(RND_QUOTES, response.toString()).apply();
+                sharedPreferences.edit().putBoolean(FIRST_TIME, false).apply();
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                error.printStackTrace();
+            }
+        });
+
+        // Add the request to the RequestQueue(singleton bc we want only one queue for the whole app).
+        RequestSingleton.getInstance(applicationContext).addToRequestQueue(dailyRequest);
     }
 }
