@@ -15,14 +15,17 @@
         android:layout_marginTop="8dp"
         android:layout_marginEnd="32dp"
         android:layout_marginRight="32dp"
+        android:fontFamily="casual"
         android:padding="30dp"
         android:text="TextView"
+        android:textSize="16sp"
+        android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
     <Button
-        android:id="@+id/btn_newQuote"
+        android:id="@+id/btn_new_quote"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="158dp"
@@ -36,4 +39,135 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tv_quotes" />
+
+    <ProgressBar
+        android:id="@+id/pb_timer"
+        style="@style/CircularDeterminateProgressBar"
+        android:layout_width="317dp"
+        android:layout_height="383dp"
+        android:indeterminateOnly="false"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/tv_quotes"
+        app:layout_constraintVertical_bias="0.488" />
+
+    <ImageView
+        android:id="@+id/iv_session1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="21dp"
+        android:layout_marginBottom="338dp"
+        app:layout_constraintBottom_toBottomOf="@+id/pb_timer"
+        app:layout_constraintEnd_toStartOf="@+id/iv_session2"
+        app:layout_constraintStart_toStartOf="@id/pb_timer"
+        app:layout_constraintTop_toTopOf="@+id/pb_timer"
+        app:srcCompat="@drawable/ic_sessions" />
+
+    <ImageView
+        android:id="@+id/iv_session2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="28dp"
+        android:layout_marginLeft="28dp"
+        android:layout_marginTop="21dp"
+        android:layout_marginEnd="21dp"
+        android:layout_marginRight="21dp"
+        android:layout_marginBottom="338dp"
+        app:layout_constraintBottom_toBottomOf="@+id/pb_timer"
+        app:layout_constraintEnd_toStartOf="@+id/iv_session3"
+        app:layout_constraintStart_toEndOf="@id/iv_session1"
+        app:layout_constraintTop_toTopOf="@+id/pb_timer"
+        app:srcCompat="@drawable/ic_sessions" />
+
+    <ImageView
+        android:id="@+id/iv_session3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="21dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginRight="24dp"
+        android:layout_marginBottom="338dp"
+        app:layout_constraintBottom_toBottomOf="@+id/pb_timer"
+        app:layout_constraintEnd_toStartOf="@+id/iv_session4"
+        app:layout_constraintStart_toEndOf="@id/iv_session2"
+        app:layout_constraintTop_toTopOf="@+id/pb_timer"
+        app:srcCompat="@drawable/ic_sessions" />
+
+    <ImageView
+        android:id="@+id/iv_session4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="21dp"
+        android:layout_marginBottom="338dp"
+        app:layout_constraintBottom_toBottomOf="@+id/pb_timer"
+        app:layout_constraintEnd_toEndOf="@+id/pb_timer"
+        app:layout_constraintStart_toEndOf="@id/iv_session3"
+        app:layout_constraintTop_toTopOf="@+id/pb_timer"
+        app:srcCompat="@drawable/ic_sessions" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_start_pause"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.773"
+        app:srcCompat="@drawable/ic_play_arrow"
+        tools:ignore="SpeakableTextPresentCheck" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_stop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="177dp"
+        android:layout_marginLeft="177dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="178dp"
+        android:layout_marginRight="178dp"
+        android:layout_marginBottom="89dp"
+        android:clickable="true"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/fab_start_pause"
+        app:srcCompat="@drawable/ic_stop"
+        tools:ignore="SpeakableTextPresentCheck"
+        tools:visibility="visible" />
+
+    <TextView
+        android:id="@+id/tv_timer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="00:00"
+        android:textColor="#FF9100"
+        android:textSize="48sp"
+        app:layout_constraintBottom_toBottomOf="@+id/pb_timer"
+        app:layout_constraintEnd_toEndOf="@+id/pb_timer"
+        app:layout_constraintStart_toStartOf="@+id/pb_timer"
+        app:layout_constraintTop_toTopOf="@+id/pb_timer" />
+
+    <ImageView
+        android:id="@+id/iv_session_mode"
+        android:layout_width="37dp"
+        android:layout_height="42dp"
+        android:layout_marginStart="140dp"
+        android:layout_marginLeft="140dp"
+        android:layout_marginTop="32dp"
+        android:layout_marginEnd="140dp"
+        android:layout_marginRight="140dp"
+        android:layout_marginBottom="160dp"
+        app:layout_constraintBottom_toBottomOf="@+id/pb_timer"
+        app:layout_constraintEnd_toEndOf="@+id/pb_timer"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="@+id/pb_timer"
+        app:layout_constraintTop_toTopOf="@+id/pb_timer"
+        app:srcCompat="@drawable/ic_work" />
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>
