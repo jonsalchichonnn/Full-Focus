@@ -1,8 +1,9 @@
 package com.jonsalchichonnn.fullfocus;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
-import android.icu.util.Calendar;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -16,12 +17,10 @@ import android.widget.TextView;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import androidx.work.Constraints;
-import androidx.work.NetworkType;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.WorkManager;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.jonsalchichonnn.fullfocus.util.CountDownTimerService;
+import com.jonsalchichonnn.fullfocus.util.ScheduleWork;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -31,7 +30,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
     // show attribution with a link back to https://zenquotes.io/ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -40,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String DAILY_QUOTE = "dailyQuote";
     private static final String RND_QUOTES = "rndQuotes";
     private static final String FIRST_TIME = "firstTime";
+    public static final String  TAG = "MAIN_ACTIVITY";
 
     private static final int N_FRASES = 50;
     private long startTimeInMillis;
@@ -96,9 +95,9 @@ public class MainActivity extends AppCompatActivity {
 
         firstTime = sharedPreferences.getBoolean(FIRST_TIME, true);
 
-        // si lo he entendido bien, con esto evitamos q cada vez q abramos la app se programe otro Work
+        // Avoids re-scheduling the work everytime we open the app
         if (firstTime)
-            firstNotifyWork();
+            ScheduleWork.schedule(this);
         String content = sharedPreferences.getString(DAILY_QUOTE, null);
         dailyQuote = content != null ? content : getRndQuote();
         updateQuotesText();
@@ -136,50 +135,13 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    /*private BroadcastReceiver br = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            updateGUI(intent); // or whatever method used to update your GUI fields
+        }
+    };*/
 
-//    @Override
-//    protected void onStart() {
-//        super.onStart();
-//        Log.i("onStart", "ONSTARTTTTTTTTTTTTTTTTTTTTTTTTT");
-//        sharedPreferences = getSharedPreferences(SHARED_PREFS, Context.MODE_PRIVATE);
-//        timeLeftInMillis = sharedPreferences.getLong("millisLeft", startTimeInMillis);
-//        isTimerRunning = sharedPreferences.getBoolean("timerRunning", false);
-//        dailyQuote = sharedPreferences.getString(DAILY_QUOTE, null);
-//
-//        updateQuotesText();
-//        updateCountDownView();
-//        updateButtons();
-//
-//        if (isTimerRunning) {
-//            endTime = sharedPreferences.getLong("endTime", 0);
-//            timeLeftInMillis = endTime - System.currentTimeMillis();
-//            // in case we completed the countdown
-//            if (timeLeftInMillis < 0) {
-//                timeLeftInMillis = 0;
-//                isTimerRunning = false;
-//                updateCountDownView();
-//                updateButtons();
-//            } else {
-//                startTimer();
-//            }
-//        }
-//    }
-//
-//    @Override
-//    protected void onStop() {
-//        super.onStop();
-//        sharedPreferences = getSharedPreferences(SHARED_PREFS, Context.MODE_PRIVATE);
-//        SharedPreferences.Editor editor = sharedPreferences.edit();
-//        editor.putLong("millisLeft", timeLeftInMillis);
-//        editor.putBoolean("timerRunning", isTimerRunning);
-//        editor.putLong("endTime", endTime);
-//        editor.putString("dailyQuote", dailyQuote);
-//        editor.apply();
-//
-//        if (mCountDownTimer != null) {
-//            mCountDownTimer.cancel();
-//        }
-//    }
 
     private void saveData() {
     }
@@ -203,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
             public void onFinish() {
                 isTimerRunning = false;
                 timeLeftInMillis = 0;
-                if(isWorkSession)
+                if (isWorkSession)
                     finishedSessions++;
                 System.out.println("Count down terminado. finishedSessions = " + finishedSessions);
                 isWorkSession = !isWorkSession;
@@ -241,9 +203,13 @@ public class MainActivity extends AppCompatActivity {
     private void updateSessions() {
         if (finishedSessions == 0) {
             for (int i = 0; i < sessions.length; i++)
-                sessions[i].setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_sessions));
-        } else{
-            sessions[finishedSessions - 1].setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_session_done));
+                sessions[i].setImageDrawable(
+                        ContextCompat.getDrawable(this, R.drawable.ic_sessions)
+                );
+        } else {
+            sessions[finishedSessions - 1].setImageDrawable(
+                    ContextCompat.getDrawable(this, R.drawable.ic_session_done)
+            );
         }
     }
 
@@ -252,11 +218,15 @@ public class MainActivity extends AppCompatActivity {
         if (isWorkSession) {
             Log.i("WORK", "WORK SESSION!!!!!!!!!!!!!!!!!!!!");
             startTimeInMillis = 5000;
-            iv_sessionMode.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_work));
+            iv_sessionMode.setImageDrawable(
+                    ContextCompat.getDrawable(this, R.drawable.ic_work)
+            );
         } else {
             Log.i("BREAK", "BREAK SESSION!!!!!!!!!!!!!!!!!!!!");
             startTimeInMillis = 3000;
-            iv_sessionMode.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_break));
+            iv_sessionMode.setImageDrawable(
+                    ContextCompat.getDrawable(this, R.drawable.ic_break)
+            );
         }
         timeLeftInMillis = startTimeInMillis;
     }
@@ -269,9 +239,13 @@ public class MainActivity extends AppCompatActivity {
 
         String timeLeftFormatted;
         if (hours > 0) {
-            timeLeftFormatted = String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds);
+            timeLeftFormatted = String.format(
+                    Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds
+            );
         } else {
-            timeLeftFormatted = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+            timeLeftFormatted = String.format(
+                    Locale.getDefault(), "%02d:%02d", minutes, seconds
+            );
         }
         tv_timer.setText(timeLeftFormatted);
         progress = (int) ((double) timeLeftInMillis / startTimeInMillis * 100);
@@ -280,56 +254,18 @@ public class MainActivity extends AppCompatActivity {
 
     // called always after isTimerRunning changed
     private void updateButtons() {
-//        if (isTimerRunning) {
-//            fab_startPause.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_pause));
-//            fab_stop.setVisibility(View.VISIBLE);
-//        } else {
-//            fab_startPause.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_play_arrow));
-//
-//            if (timeLeftInMillis < 1000) {
-//                fab_startPause.setVisibility(View.INVISIBLE);
-//            } else {
-//                fab_startPause.setVisibility(View.VISIBLE);
-//            }
-//            if (timeLeftInMillis >= startTimeInMillis) {
-//                fab_stop.setVisibility(View.INVISIBLE);
-//            } else {
-//                fab_stop.setVisibility(View.VISIBLE);
-//            }
         if (isTimerRunning) {
-            fab_startPause.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_pause));
+            fab_startPause.setImageDrawable(
+                    ContextCompat.getDrawable(this, R.drawable.ic_pause)
+            );
         } else {
-            fab_startPause.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_play_arrow));
+            fab_startPause.setImageDrawable(
+                    ContextCompat.getDrawable(this, R.drawable.ic_play_arrow)
+            );
         }
         fab_stop.setVisibility(View.VISIBLE);
     }
 
-    // set the daily quote task for the very 1st time
-    // doesn't show the notification if the day u downloaded is 5AM past
-    @RequiresApi(api = Build.VERSION_CODES.N)
-    private void firstNotifyWork() {
-        Calendar currentDate = Calendar.getInstance();
-        Calendar dueDate = Calendar.getInstance();
-        // Set Execution around 05:00:00 AM
-        dueDate.set(Calendar.HOUR_OF_DAY, 5);
-        dueDate.set(Calendar.MINUTE, 0);
-        dueDate.set(Calendar.SECOND, 0);
-
-        // Re-scheduling the task for next day
-        if (dueDate.before(currentDate)) {
-            dueDate.add(Calendar.HOUR_OF_DAY, 24);
-        }
-
-        long timeDiff = dueDate.getTimeInMillis() - currentDate.getTimeInMillis();
-        Constraints constraints =
-                new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
-        OneTimeWorkRequest notificationWork = new OneTimeWorkRequest.Builder(NotifyWorker.class)
-                .setInitialDelay(timeDiff, TimeUnit.MILLISECONDS)
-                .setConstraints(constraints)
-                .build();
-
-        WorkManager.getInstance(getApplicationContext()).enqueue(notificationWork);
-    }
 
     private String getRndQuote() {
         String rndQuote;

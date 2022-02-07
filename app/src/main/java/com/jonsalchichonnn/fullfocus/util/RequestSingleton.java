@@ -1,4 +1,4 @@
-package com.jonsalchichonnn.fullfocus;
+package com.jonsalchichonnn.fullfocus.util;
 
 import android.content.Context;
 
