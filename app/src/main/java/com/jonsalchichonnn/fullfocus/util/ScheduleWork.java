@@ -18,9 +18,9 @@ public class ScheduleWork {
     public static void schedule(Context ctx) {
         Calendar currentDate = Calendar.getInstance();
         Calendar dueDate = Calendar.getInstance();
-        // Set Execution around 05:00:00 AM
-        dueDate.set(Calendar.HOUR_OF_DAY, 17);
-        dueDate.set(Calendar.MINUTE, 54);
+        // Set Execution around 06:00:00 AM
+        dueDate.set(Calendar.HOUR_OF_DAY, 6);
+        dueDate.set(Calendar.MINUTE, 0);
         dueDate.set(Calendar.SECOND, 0);
 
         // Re-scheduling the task for next day

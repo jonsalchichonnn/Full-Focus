@@ -3,6 +3,7 @@ package com.jonsalchichonnn.fullfocus;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
@@ -32,18 +33,18 @@ import java.util.Locale;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
+    public static final String TAG = "MAIN_ACTIVITY";
+    public static final String SHARED_PREFS = "com.jonsalchichonnn.fullfocus";
+    public static final String TIMER_FINISHED = "timerFinished";
     // show attribution with a link back to https://zenquotes.io/ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     private static final String DAILY_URL = "https://zenquotes.io/api/today";
-    private static final String SHARED_PREFS = "com.jonsalchichonnn.fullfocus";
     private static final String DAILY_QUOTE = "dailyQuote";
     private static final String RND_QUOTES = "rndQuotes";
     private static final String FIRST_TIME = "firstTime";
-    public static final String  TAG = "MAIN_ACTIVITY";
-
     private static final int N_FRASES = 50;
-    private long startTimeInMillis;
+    Intent cdtsIntent = null;
     //1500000; // 25 mins
-
+    private long startTimeInMillis;
     private SharedPreferences sharedPreferences;
     private TextView tv_quotes;
     private Button btn_newQuote;
@@ -64,11 +65,15 @@ public class MainActivity extends AppCompatActivity {
     //private long endTime;
     private int finishedSessions = 0;
     private int progress;
-
     private String dailyQuote;
     private Random rnd;
     private boolean firstTime;
-
+    private BroadcastReceiver br = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            updateGUI(intent);
+        }
+    };
 
     @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
@@ -96,10 +101,16 @@ public class MainActivity extends AppCompatActivity {
         firstTime = sharedPreferences.getBoolean(FIRST_TIME, true);
 
         // Avoids re-scheduling the work everytime we open the app
-        if (firstTime)
+        if (firstTime) {
             ScheduleWork.schedule(this);
+        }
+
         String content = sharedPreferences.getString(DAILY_QUOTE, null);
         dailyQuote = content != null ? content : getRndQuote();
+
+        // Init timer state to finished
+        sharedPreferences.edit().putBoolean(TIMER_FINISHED, false).apply();
+        // Init Main GUI
         updateQuotesText();
         updateSessionMode();
         updateSessions();
@@ -135,12 +146,54 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    /*private BroadcastReceiver br = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            updateGUI(intent); // or whatever method used to update your GUI fields
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        registerReceiver(br, new IntentFilter(CountDownTimerService.COUNTDOWN_BR));
+        Log.i(TAG, "Registered broacast receiver");
+
+        boolean isCountDownFinished = sharedPreferences.getBoolean(TIMER_FINISHED, false);
+        if (isCountDownFinished) {
+            countdownFinished();
         }
-    };*/
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        unregisterReceiver(br);
+        Log.i(TAG, "Unregistered broacast receiver");
+    }
+
+    @Override
+    public void onStop() {
+        try {
+            unregisterReceiver(br);
+        } catch (Exception e) {
+            // Receiver was probably already stopped in onPause()
+        }
+        super.onStop();
+    }
+
+    @Override
+    public void onDestroy() {
+        stopService(new Intent(this, CountDownTimerService.class));
+        Log.i(TAG, "Stopped service");
+        super.onDestroy();
+    }
+
+    private void updateGUI(Intent intent) {
+        // countdown finished
+        if (intent.getBooleanExtra("finished", false)) {
+            countdownFinished();
+        } else if (intent.getExtras() != null) {
+            timeLeftInMillis = intent.getLongExtra("countdown", 0);
+            Log.i(TAG, "Countdown seconds remaining: " + timeLeftInMillis / 1000);
+            updateCountDownView();
+        }
+
+    }
 
 
     private void saveData() {
@@ -152,44 +205,26 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void startTimer() {
-        //endTime = System.currentTimeMillis() + timeLeftInMillis;
-        // we get onTick feedback every second
-        mCountDownTimer = new CountDownTimer(timeLeftInMillis, 1000) {
-            @Override
-            public void onTick(long millisUntilFinished) {
-                timeLeftInMillis = millisUntilFinished;
-                updateCountDownView();
-            }
+        cdtsIntent = new Intent(this, CountDownTimerService.class);
+        //Log.i(TAG, "TIMELEFTINMILLIS = " + timeLeftInMillis);
+        cdtsIntent.putExtra("timeLeftInMillis", timeLeftInMillis);
+        startService(cdtsIntent);
+        Log.i(TAG, "Started service...");
 
-            @Override
-            public void onFinish() {
-                isTimerRunning = false;
-                timeLeftInMillis = 0;
-                if (isWorkSession)
-                    finishedSessions++;
-                System.out.println("Count down terminado. finishedSessions = " + finishedSessions);
-                isWorkSession = !isWorkSession;
-                if (finishedSessions >= 4) {
-                    finishedSessions = 0;
-                }
-                updateSessions();
-                updateSessionMode();
-                updateCountDownView();
-                updateButtons();
-            }
-        }.start();
         isTimerRunning = true;
         updateButtons();
     }
 
     private void pauseTimer() {
-        mCountDownTimer.cancel();
+        if (cdtsIntent != null)
+            stopService(cdtsIntent);
         isTimerRunning = false;
         updateButtons();
     }
 
     private void resetTimer() {
-        mCountDownTimer.cancel();
+        if (cdtsIntent != null)
+            stopService(cdtsIntent);
         isTimerRunning = false;
         isWorkSession = true;
         finishedSessions = 0;
@@ -199,7 +234,23 @@ public class MainActivity extends AppCompatActivity {
         updateButtons();
     }
 
-    // update view of done working sessions
+    private void countdownFinished() {
+        isTimerRunning = false;
+        timeLeftInMillis = 0;
+        if (isWorkSession)
+            finishedSessions++;
+        Log.i(TAG, "Count down terminado. finishedSessions = " + finishedSessions);
+        isWorkSession = !isWorkSession;
+        if (isWorkSession && finishedSessions >= 4) {
+            finishedSessions = 0;
+        }
+        updateSessions();
+        updateSessionMode();
+        updateCountDownView();
+        updateButtons();
+    }
+
+    // Update view of done working sessions
     private void updateSessions() {
         if (finishedSessions == 0) {
             for (int i = 0; i < sessions.length; i++)
@@ -213,11 +264,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //changes Pomodoro mode from work to break and vice versa
+    //Changes Pomodoro mode from work to break and vice versa
     private void updateSessionMode() {
         if (isWorkSession) {
             Log.i("WORK", "WORK SESSION!!!!!!!!!!!!!!!!!!!!");
-            startTimeInMillis = 5000;
+            startTimeInMillis = 60000;
             iv_sessionMode.setImageDrawable(
                     ContextCompat.getDrawable(this, R.drawable.ic_work)
             );
@@ -231,10 +282,10 @@ public class MainActivity extends AppCompatActivity {
         timeLeftInMillis = startTimeInMillis;
     }
 
-    // updates progress bar and clock text
+    // Updates progress bar and clock text
     private void updateCountDownView() {
-        int hours = (int) (timeLeftInMillis / 1000) / 36000;
-        int minutes = (int) (timeLeftInMillis / 36000) / 60;
+        int hours = (int) (timeLeftInMillis / 1000) / 3600;
+        int minutes = (int) (timeLeftInMillis / 1000) / 60;
         int seconds = (int) (timeLeftInMillis / 1000) % 60;
 
         String timeLeftFormatted;
@@ -252,7 +303,7 @@ public class MainActivity extends AppCompatActivity {
         pb_timer.setProgress(progress);
     }
 
-    // called always after isTimerRunning changed
+    // Called always after isTimerRunning changed
     private void updateButtons() {
         if (isTimerRunning) {
             fab_startPause.setImageDrawable(
