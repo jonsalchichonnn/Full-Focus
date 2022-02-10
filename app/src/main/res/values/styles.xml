@@ -5,4 +5,10 @@
         <item name="android:indeterminateOnly">false</item>
         <item name="android:progressDrawable">@drawable/custom_progress_bar</item>
     </style>
+
+    <style name="NumberPickerText">
+        <item name="android:textSize">22sp</item>
+        <!-- To remove divider of the number picker -->
+        <item name="colorControlNormal">@android:color/transparent</item>
+    </style>
 </resources>

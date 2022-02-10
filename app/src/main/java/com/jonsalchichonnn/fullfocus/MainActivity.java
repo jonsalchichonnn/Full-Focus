@@ -1,5 +1,9 @@
 package com.jonsalchichonnn.fullfocus;
 
+import static com.jonsalchichonnn.fullfocus.SettingsActivity.BREAK_TIME;
+import static com.jonsalchichonnn.fullfocus.SettingsActivity.MODIFIED;
+import static com.jonsalchichonnn.fullfocus.SettingsActivity.WORK_TIME;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -9,14 +13,18 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -147,6 +155,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.settings:
+                Intent intent = new Intent(getApplicationContext(), SettingsActivity.class);
+                MainActivity.this.startActivity(intent);
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
 
@@ -156,6 +180,12 @@ public class MainActivity extends AppCompatActivity {
         boolean isCountDownFinished = sharedPreferences.getBoolean(TIMER_FINISHED, false);
         if (isCountDownFinished) {
             countdownFinished();
+        }
+        // Settings modification detected
+        if (!isTimerRunning && sharedPreferences.getBoolean(MODIFIED, false)) {
+            updateSessionMode();
+            updateCountDownView();
+            sharedPreferences.edit().putBoolean(MODIFIED, false).apply();
         }
     }
 
@@ -268,13 +298,14 @@ public class MainActivity extends AppCompatActivity {
     private void updateSessionMode() {
         if (isWorkSession) {
             Log.i("WORK", "WORK SESSION!!!!!!!!!!!!!!!!!!!!");
-            startTimeInMillis = 60000;
+            /*startTimeInMillis = sharedPreferences.getInt(WORK_TIME, 1) * 60000;*/
+            startTimeInMillis = 3000;
             iv_sessionMode.setImageDrawable(
                     ContextCompat.getDrawable(this, R.drawable.ic_work)
             );
         } else {
             Log.i("BREAK", "BREAK SESSION!!!!!!!!!!!!!!!!!!!!");
-            startTimeInMillis = 3000;
+            startTimeInMillis = sharedPreferences.getInt(BREAK_TIME, 1) * 60000;
             iv_sessionMode.setImageDrawable(
                     ContextCompat.getDrawable(this, R.drawable.ic_break)
             );
@@ -289,7 +320,7 @@ public class MainActivity extends AppCompatActivity {
         int seconds = (int) (timeLeftInMillis / 1000) % 60;
 
         String timeLeftFormatted;
-        if (hours > 0) {
+        /*if (hours > 0) {
             timeLeftFormatted = String.format(
                     Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds
             );
@@ -297,7 +328,10 @@ public class MainActivity extends AppCompatActivity {
             timeLeftFormatted = String.format(
                     Locale.getDefault(), "%02d:%02d", minutes, seconds
             );
-        }
+        }*/
+        timeLeftFormatted = String.format(
+                Locale.getDefault(), "%02d:%02d", minutes, seconds
+        );
         tv_timer.setText(timeLeftFormatted);
         progress = (int) ((double) timeLeftInMillis / startTimeInMillis * 100);
         pb_timer.setProgress(progress);

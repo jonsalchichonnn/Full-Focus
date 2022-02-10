@@ -6,9 +6,15 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.CountDownTimer;
 import android.os.IBinder;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Log;
+
+import com.jonsalchichonnn.fullfocus.R;
 
 public class CountDownTimerService extends Service {
     public static final String COUNTDOWN_BR = "com.jonsalchichonnn.fullfocus.util.countdown_br";
@@ -16,15 +22,29 @@ public class CountDownTimerService extends Service {
     Intent broadcastIntent = new Intent(COUNTDOWN_BR);
 
     CountDownTimer cdt = null;
+    private MediaPlayer mediaPlayer;
+    private Vibrator vibrator;
     private long timeLeftInMillis;
     private SharedPreferences sharedPreferences;
 
     //cdt was in Oncreate
 
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        mediaPlayer = MediaPlayer.create(this, R.raw.rooster);
+        mediaPlayer.setLooping(false);
+
+        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+    }
+
     @Override
     public void onDestroy() {
         cdt.cancel();
-        Log.i(TAG, "Timer cancelled");
+        mediaPlayer.stop();
+        vibrator.cancel();
+        Log.i(TAG, "Timer,mediaPlayer,vibrator cancelled");
         super.onDestroy();
     }
 
@@ -53,10 +73,20 @@ public class CountDownTimerService extends Service {
                 @Override
                 public void onFinish() {
                     Log.i(TAG, "Timer finished");
+                    mediaPlayer.start();
+
+                    long[] pattern = {0, 1000, 1000, 1000, 1000, 2000, 1000};
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1));
+                    } else {
+                        vibrator.vibrate(pattern, -1);
+                    }
+                    // TODO: SEND NOTIFICATION----------------------------------------------------------------
+
+
                     sharedPreferences.edit().putBoolean("timerFinished", true).apply();
                     broadcastIntent.putExtra("finished", true);
                     sendBroadcast(broadcastIntent);
-                    // TODO: send notification and ringtone
                 }
             };
 
