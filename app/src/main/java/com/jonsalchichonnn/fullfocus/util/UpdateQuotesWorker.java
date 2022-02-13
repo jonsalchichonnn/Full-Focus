@@ -10,7 +10,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
@@ -80,18 +79,20 @@ public class UpdateQuotesWorker extends Worker {
     private void triggerNotification(String notificationText) {
         sharedPreferences.edit().putString(DAILY_QUOTE, notificationText).apply();
 
+        notificationHandler.showDailyQuoteNotification(notificationText);
         //build the notification
-        Notification.Builder notificationBuilder = notificationHandler.createNotification(
+       /* Notification.Builder notificationBuilder = notificationHandler.getBasicNotificationBuilder(
                 NOTIFICATION_TITLE,
                 notificationText,
                 DAILY_QUOTE_NOTIFICATION_CHANNEL
-        );
+        );*/
         //Triggering the notification
         //we hardcode the id so there will be just 1 notification w/ different content
-        NotificationManagerCompat notificationManager =
-                NotificationManagerCompat.from(applicationContext);
+        /*NotificationManagerCompat notificationManager =
+                NotificationManagerCompat.from(applicationContext);*/
 
-        notificationManager.notify(1, notificationBuilder.build());
+        /*notificationHandler.getManager().notify(1, notificationBuilder.build());*/
+        /*notificationHandler.createGroup();*/
     }
 
     private void getNewDailyQuote(VolleyResponseListener volleyResponseListener) {

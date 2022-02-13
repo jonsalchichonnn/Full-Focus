@@ -15,11 +15,10 @@ import android.os.Build;
  */
 
 public class App extends Application {
-    public static final  String DAILY_QUOTE_NOTIFICATION_CHANNEL = "dailyQuoteReminder";
+    public static final String DAILY_QUOTE_NOTIFICATION_CHANNEL = "dailyQuoteReminder";
     public static final String TIMER_NOTIFICATION_CHANNEL = "timerNotificationChannel";
     public static final int DAILY_QUOTE_CH_ID = 1;
     public static final int TIMER_NOT_CH_ID = 2;
-
 
 
     @Override
@@ -59,6 +58,7 @@ public class App extends Application {
 
             timerChannel.setLightColor(Color.GREEN);
             timerChannel.enableLights(true);
+            timerChannel.setVibrationPattern(new long[]{0});
             timerChannel.enableVibration(true);
             timerChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             timerChannel.setShowBadge(true);

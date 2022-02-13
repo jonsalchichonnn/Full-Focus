@@ -26,6 +26,7 @@ public class CountDownTimerService extends Service {
     private Vibrator vibrator;
     private long timeLeftInMillis;
     private SharedPreferences sharedPreferences;
+    private NotificationHandler notificationHandler;
 
     //cdt was in Oncreate
 
@@ -33,6 +34,9 @@ public class CountDownTimerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        sharedPreferences = getSharedPreferences(SHARED_PREFS, Context.MODE_PRIVATE);
+        notificationHandler = new NotificationHandler(CountDownTimerService.this);
+
         mediaPlayer = MediaPlayer.create(this, R.raw.rooster);
         mediaPlayer.setLooping(false);
 
@@ -50,22 +54,25 @@ public class CountDownTimerService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+
         super.onStartCommand(intent, flags, startId);
-        sharedPreferences = getSharedPreferences(SHARED_PREFS, Context.MODE_PRIVATE);
 
         if (intent.getExtras() != null) {
             timeLeftInMillis = intent.getLongExtra("timeLeftInMillis", 0);
-
-
             Log.i(TAG, "Starting timer... TIMELEFTINMILLIS = " + timeLeftInMillis);
+
             cdt = new CountDownTimer(timeLeftInMillis, 1000) {
                 @Override
                 public void onTick(long millisUntilFinished) {
 
                     Log.i(TAG, "Countdown seconds remaining: " + millisUntilFinished / 1000);
+                    sharedPreferences.edit().putBoolean("timerFinished", false).apply();
+                    Log.e(TAG, "timerFinished = false");
+
+                    notificationHandler.showTimerRunningNotification(CountDownTimerService.this, millisUntilFinished);
+
                     broadcastIntent.putExtra("countdown", millisUntilFinished);
                     broadcastIntent.putExtra("finished", false);
-                    sharedPreferences.edit().putBoolean("timerFinished", false).apply();
 
                     sendBroadcast(broadcastIntent);
                 }
@@ -81,8 +88,7 @@ public class CountDownTimerService extends Service {
                     } else {
                         vibrator.vibrate(pattern, -1);
                     }
-                    // TODO: SEND NOTIFICATION----------------------------------------------------------------
-
+                    notificationHandler.showTimerExpiredNotification(CountDownTimerService.this);
 
                     sharedPreferences.edit().putBoolean("timerFinished", true).apply();
                     broadcastIntent.putExtra("finished", true);

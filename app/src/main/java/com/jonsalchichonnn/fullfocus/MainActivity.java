@@ -3,6 +3,11 @@ package com.jonsalchichonnn.fullfocus;
 import static com.jonsalchichonnn.fullfocus.SettingsActivity.BREAK_TIME;
 import static com.jonsalchichonnn.fullfocus.SettingsActivity.MODIFIED;
 import static com.jonsalchichonnn.fullfocus.SettingsActivity.WORK_TIME;
+import static com.jonsalchichonnn.fullfocus.util.NotificationActionReceiver.ACTION;
+import static com.jonsalchichonnn.fullfocus.util.NotificationActionReceiver.ACTION_PAUSE;
+import static com.jonsalchichonnn.fullfocus.util.NotificationActionReceiver.ACTION_RESUME;
+import static com.jonsalchichonnn.fullfocus.util.NotificationActionReceiver.ACTION_START;
+import static com.jonsalchichonnn.fullfocus.util.NotificationActionReceiver.ACTION_STOP;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -24,11 +29,11 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.jonsalchichonnn.fullfocus.util.CountDownTimerService;
+import com.jonsalchichonnn.fullfocus.util.NotificationHandler;
 import com.jonsalchichonnn.fullfocus.util.ScheduleWork;
 
 import org.json.JSONArray;
@@ -51,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String FIRST_TIME = "firstTime";
     private static final int N_FRASES = 50;
     Intent cdtsIntent = null;
+    NotificationHandler notificationHandler;
     //1500000; // 25 mins
     private long startTimeInMillis;
     private SharedPreferences sharedPreferences;
@@ -79,7 +85,31 @@ public class MainActivity extends AppCompatActivity {
     private BroadcastReceiver br = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            updateGUI(intent);
+            String action = intent.getStringExtra(ACTION);
+            Log.e(TAG, "ACTION: " + action);
+            if (action != null) {
+                switch (action) {
+                    case ACTION_STOP:
+                        Log.i(TAG, ACTION_STOP);
+                        resetTimer();
+                        break;
+                    case ACTION_PAUSE:
+                        Log.i(TAG, ACTION_PAUSE);
+                        pauseTimer();
+                        break;
+                    case ACTION_RESUME:
+                        Log.i(TAG, ACTION_RESUME);
+                        startTimer();
+                        break;
+                    case ACTION_START:
+                        Log.i(TAG, ACTION_START);
+                        sharedPreferences.edit().putBoolean(TIMER_FINISHED, true).apply();
+                        startTimer();
+                        break;
+                }
+            } else {
+                updateGUI(intent);
+            }
         }
     };
 
@@ -105,6 +135,7 @@ public class MainActivity extends AppCompatActivity {
         rnd = new Random();
 
         sharedPreferences = getSharedPreferences(SHARED_PREFS, Context.MODE_PRIVATE);
+        registerReceiver(br, new IntentFilter(CountDownTimerService.COUNTDOWN_BR));
 
         firstTime = sharedPreferences.getBoolean(FIRST_TIME, true);
 
@@ -125,6 +156,8 @@ public class MainActivity extends AppCompatActivity {
         updateCountDownView();
         updateButtons();
 
+        cdtsIntent = new Intent(this, CountDownTimerService.class);
+        notificationHandler = new NotificationHandler(this);
 
         btn_newQuote.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -174,13 +207,27 @@ public class MainActivity extends AppCompatActivity {
     public void onResume() {
         super.onResume();
 
-        registerReceiver(br, new IntentFilter(CountDownTimerService.COUNTDOWN_BR));
+
         Log.i(TAG, "Registered broacast receiver");
 
         boolean isCountDownFinished = sharedPreferences.getBoolean(TIMER_FINISHED, false);
         if (isCountDownFinished) {
             countdownFinished();
         }
+
+        if (sharedPreferences.getBoolean("reset", false)) {
+            resetTimer();
+            sharedPreferences.edit().putBoolean("reset", false).apply();
+        }
+        if (sharedPreferences.getBoolean("pause", false)) {
+            pauseTimer();
+            sharedPreferences.edit().putBoolean("pause", false).apply();
+        }
+        if (sharedPreferences.getBoolean("resume", false)) {
+            startTimer();
+            sharedPreferences.edit().putBoolean("resume", false).apply();
+        }
+
         // Settings modification detected
         if (!isTimerRunning && sharedPreferences.getBoolean(MODIFIED, false)) {
             updateSessionMode();
@@ -192,14 +239,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onPause() {
         super.onPause();
-        unregisterReceiver(br);
+        //notificationHandler.showTimerRunningNotification(this, timeLeftInMillis);
+        //unregisterReceiver(br);
         Log.i(TAG, "Unregistered broacast receiver");
     }
 
     @Override
     public void onStop() {
         try {
-            unregisterReceiver(br);
+            //unregisterReceiver(br);
         } catch (Exception e) {
             // Receiver was probably already stopped in onPause()
         }
@@ -208,6 +256,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onDestroy() {
+        unregisterReceiver(br);
         stopService(new Intent(this, CountDownTimerService.class));
         Log.i(TAG, "Stopped service");
         super.onDestroy();
@@ -235,7 +284,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void startTimer() {
-        cdtsIntent = new Intent(this, CountDownTimerService.class);
+        /*cdtsIntent = new Intent(this, CountDownTimerService.class);*/
         //Log.i(TAG, "TIMELEFTINMILLIS = " + timeLeftInMillis);
         cdtsIntent.putExtra("timeLeftInMillis", timeLeftInMillis);
         startService(cdtsIntent);
@@ -262,6 +311,7 @@ public class MainActivity extends AppCompatActivity {
         updateSessionMode();
         updateCountDownView();
         updateButtons();
+        notificationHandler.hideTimerNotification(this);
     }
 
     private void countdownFinished() {
@@ -298,8 +348,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateSessionMode() {
         if (isWorkSession) {
             Log.i("WORK", "WORK SESSION!!!!!!!!!!!!!!!!!!!!");
-            /*startTimeInMillis = sharedPreferences.getInt(WORK_TIME, 1) * 60000;*/
-            startTimeInMillis = 3000;
+            startTimeInMillis = sharedPreferences.getInt(WORK_TIME, 1) * 60000;
             iv_sessionMode.setImageDrawable(
                     ContextCompat.getDrawable(this, R.drawable.ic_work)
             );
